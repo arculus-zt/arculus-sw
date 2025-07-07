@@ -1,0 +1,8 @@
+{
+    "url": "http://<honeypot domain>",
+    "deployKey": "0bKeXjBW",
+    "honeyNetDomain": "<honeypot domain>",
+    "username": "admin@localhost",
+    "password": "vimanlab",
+    "apikey": "36b37e50254447d7837c813fd1f4fb3d"
+}

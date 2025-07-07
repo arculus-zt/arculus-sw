@@ -1,0 +1,100 @@
+{
+    "settings": [
+        {
+            "mission": "Stealthy Reconnaissance and Resupply",
+            "devices": [
+                {
+                    "Video-Analytic Route Planner (Ground Control)::Video Analytic Controller": [
+                        "send_command",
+                        "receive_video",
+                        "receive_posdata"
+                    ],
+                    "Video Collection Surveillance Drone::Video Capture Drone": [
+                        "send_video",
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Supply Delivery Drone::Freight Drone": [
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Communication Relay Drone::Communication Relay Drone": [
+                        "receive_command",
+                        "send_command",
+                        "send_video",
+                        "send_posdata",
+                        "receive_posdata",
+                        "receive_video"
+                    ]
+                }
+            ]
+        },
+        {
+            "mission": "Mine-Aware Search and Rescue",
+            "devices": [
+                {
+                    "Video-Analytic Route Planner (Ground Control)::Video Analytic Controller": [
+                        "send_command",
+                        "receive_video",
+                        "receive_posdata"
+                    ],
+                    "Video Collection Surveillance Rover::Video Capture Rover": [
+                        "send_video",
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Rescue Vehicle::Freight UGV": [
+                        "receive_command",
+                        "send_posdata"
+                    ]
+                }
+            ]
+        },
+        {
+            "mission": "Infrastructure Inspection",
+            "devices": [
+                {
+                    "Video-Analytic Route Planner (Ground Control)::Video Analytic Controller": [
+                        "send_command",
+                        "receive_video",
+                        "receive_posdata"
+                    ],
+                    "Video Collection Surveillance Rover::Video Capture Rover": [
+                        "send_video",
+                        "receive_command",
+                        "send_posdata"
+                    ]
+                }
+            ]
+        },
+        {
+            "mission": "Disaster Assessment and Recovery",
+            "devices": [
+                {
+                    "Video-Analytic Route Planner (Ground Control)::Video Analytic Controller": [
+                        "send_command",
+                        "receive_video",
+                        "receive_posdata"
+                    ],
+                    "Video Collection Surveillance Rover::Video Capture Rover": [
+                        "send_video",
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Recovery Vehicle::Freight UGV": [
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Night-vision Sensor Drone::Sensor-Integrated Drone": [
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Recovery Drone::Freight Drone": [
+                        "receive_command",
+                        "send_posdata"
+                    ]
+                }
+            ]
+        }
+    ]
+}
