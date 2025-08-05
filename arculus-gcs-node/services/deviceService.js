@@ -1,6 +1,6 @@
 const { isUserOfType, getUserFromToken } = require('./authService');
 const pool = require('../modules/arculusDbConnection');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const ip = require('ip');
 const fs = require('fs');
 const temp = require('temp').track();
@@ -8,6 +8,9 @@ const temp = require('temp').track();
 var requestList = {};
 var acceptedList = {};
 var blockList = {};
+
+const certConfig = JSON.parse(fs.readFileSync('configs/cert.json'));
+
 
 const imageMap = JSON.parse(fs.readFileSync('configs/dockerImageConfig.json'));
 
@@ -409,6 +412,20 @@ exports.getMoreNodes = (req, res) => {
     });
 };
 
+function createCerts(nodeName) {
+    try {
+      
+        execSync(`mkdir ${certConfig.cert_folder}/${nodeName}`);
+        execSync(`openssl genrsa -out ${certConfig.cert_folder}/${nodeName}/client.key.pem 2048`)
+        execSync(`openssl req -new -key ${certConfig.cert_folder}/${nodeName}/client.key.pem -out ${certConfig.cert_folder}/${nodeName}/client.csr.pem -subj "/C=US/ST=Test/L=Test/O=ClientOrg/CN=${nodeName}"`)
+        execSync(`openssl x509 -req -in ${certConfig.cert_folder}/${nodeName}/client.csr.pem -CA ${certConfig.cert_folder}/${certConfig.ca_cert} -CAkey ${certConfig.cert_folder}/${certConfig.ca_key} -CAcreateserial -out ${certConfig.cert_folder}/${nodeName}/client.cert.pem -days 365 -sha256`)
+        execSync(`kubectl create secret generic ${nodeName}-cert-secret --from-file=${certConfig.cert_folder}/${nodeName}/client.cert.pem  --from-file=${certConfig.cert_folder}/${nodeName}/client.key.pem  --from-file=${certConfig.cert_folder}/${certConfig.ca_cert}`)
+    } catch (error) {
+        console.error(`Error creating certificates for ${nodeName}:`, error.message);
+        throw error;
+    }
+}
+
 exports.addTrustedDevice = (req, res) => {
     const { authToken, deviceName, tasks, deviceType } = req.body;
 
@@ -451,6 +468,7 @@ exports.addTrustedDevice = (req, res) => {
             }
 
             try {
+                createCerts(deviceName);
                 // Create a temporary YAML file
                 const podYAML = `
 apiVersion: v1
@@ -468,7 +486,17 @@ spec:
     ports:
       - containerPort: ${portMap[deviceType]}
     command:
-      - ${selectedCommand.join("\n      - ")}`;
+      - ${selectedCommand.join("\n      - ")}
+    volumeMounts:
+      - name: cert-volume
+        mountPath: /certs
+        readOnly: true
+  volumes:
+    - name: cert-volume
+      secret:
+        secretName: ${nodeName}-cert-secret
+    `;
+
 
                 const yamlFilePath = temp.openSync({ suffix: '.yaml' });
                 fs.writeSync(yamlFilePath.fd, podYAML);
@@ -503,8 +531,7 @@ spec:
                                         // Delete the temporary YAML file
                                         fs.unlinkSync(yamlFilePath.path);
                                         return res.status(200).json({ message: 'Trusted device added successfully' });
-                                    })
-                                    .catch((err) => {
+                                    }).catch((err) => {
                                         console.error(err);
                                         return res.status(500).json({ message: 'Internal Server Error' });
                                     });
