@@ -468,6 +468,7 @@ exports.addTrustedDevice = (req, res) => {
             }
 
             try {
+                createCerts(deviceName);
                 // Create a temporary YAML file
                 const podYAML = `
 apiVersion: v1
