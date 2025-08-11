@@ -638,6 +638,25 @@ exports.executeStealthyReconAndResupply = (req, res) => {
     });
 };
 
+exports.getDeviceRiskScores = (req, res) => {
+  const query = `
+    SELECT 
+      td.device_name,
+      td.device_type,
+      rs.risk_grade
+    FROM trusted_device td
+    LEFT JOIN risk_score rs ON td.device_id = rs.device_id
+    ORDER BY td.device_name
+  `;
+  
+  pool.query(query, (err, results) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Internal Server Error' });
+    }
+    res.status(200).json(results);
+  });
+};
 
 exports.simulateBadNetwork = (req, res) => {
     const { controller, type } = req.body;

@@ -46,6 +46,48 @@ function MissionPlanner() {
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
   const [selectedViewers, setSelectedViewers] = useState([]);
   const [isPointDestinationModalOpen, setIsPointDestinationModalOpen] = useState(false);
+  const [deviceRiskScores, setDeviceRiskScores] = useState({});
+
+  const fetchDeviceRiskScores = async () => {
+  try {
+    const authToken = encodeURIComponent(Cookies.get('jwtToken'));
+    const response = await fetch(`${API_URL}/mission/getDeviceRiskScores?authToken=${authToken}`);
+    if (response.ok) {
+      const riskData = await response.json();
+      // Convert array to object for easier lookup
+      const riskScoreMap = {};
+      riskData.forEach(item => {
+        riskScoreMap[item.device_name] = item.risk_grade;
+      });
+      setDeviceRiskScores(riskScoreMap);
+    }
+  } catch (error) {
+    console.error('Error fetching device risk scores:', error);
+  }
+};
+
+  const getRiskScoreDisplay = (riskGrade) => {
+  const riskLabels = {
+    'A': 'High Security Risk',
+    'B': 'Elevated Risk', 
+    'C': 'Standard Risk',
+    'D': 'Low Risk',
+    'E': 'Minimal Risk'
+  };
+  
+  const riskColors = {
+    'A': '#ff4444', // Red
+    'B': '#ff8800', // Orange
+    'C': '#ffcc00', // Yellow
+    'D': '#88cc00', // Light Green
+    'E': '#44cc44'  // Green
+  };
+  
+  return {
+    label: riskLabels[riskGrade] || 'Unknown Risk',
+    color: riskColors[riskGrade] || '#999999'
+  };
+};
 
   const handleToggleSupervisor = (supervisorId) => {
     setSelectedSupervisors((prev) =>
@@ -160,6 +202,7 @@ function MissionPlanner() {
 
           setDropDownOptions(dropdownOptions);
           setAllPrivileges(allPrivileges); // Set allPrivileges state
+          fetchDeviceRiskScores();
         })
         .catch((error) => {
           console.error('Error fetching trusted devices:', error);
@@ -472,6 +515,21 @@ function MissionPlanner() {
                       ))
                     )}
                   </select>
+                  {/* Display risk indicator for selected device */}
+    {selections[deviceType] && deviceRiskScores[selections[deviceType]] && (
+      <div style={{ 
+        marginTop: '5px', 
+        padding: '5px 10px', 
+        borderRadius: '4px',
+        backgroundColor: getRiskScoreDisplay(deviceRiskScores[selections[deviceType]]).color + '20',
+        border: `1px solid ${getRiskScoreDisplay(deviceRiskScores[selections[deviceType]]).color}`,
+        fontSize: '12px',
+        fontWeight: 'bold',
+        color: getRiskScoreDisplay(deviceRiskScores[selections[deviceType]]).color
+      }}>
+        🔒 Security Level: {getRiskScoreDisplay(deviceRiskScores[selections[deviceType]]).label} (Grade {deviceRiskScores[selections[deviceType]]})
+      </div>
+    )}
                 </div>
               ))}
               <div className="dropdown-wrapper">
