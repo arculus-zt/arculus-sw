@@ -698,14 +698,11 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         };
 
 
-                        const escapedJsonString = JSON.stringify(deviceMap)
-                        .replace(/\\/g, '\\\\')  // escape backslashes first
-                        .replace(/"/g, '\\"');   // then escape double quotes
-
                         execSync(
-                        `kubectl exec ${controller} -n default -- sh -c "echo \\"${escapedJsonString}\\" > deviceMap.json"`
+                        `kubectl exec ${controller} -n default -- sh -c 'cat > deviceMap.json << "EOF"
+${JSON.stringify(deviceMap)}
+EOF'`
                         );
-
                         const command = `kubectl exec ${controller} -n default -- python3 controller.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP}`;
                         console.log('Executing command:', command);
 
