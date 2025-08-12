@@ -18,5 +18,6 @@ router.post('/downloadMissionManifest', missionService.downloadMissionManifest);
 router.post('/uploadMissionManifest', missionService.uploadMissionManifest);
 router.post('/simulateGpsSpoofing', missionService.simulateGpsSpoofing);
 router.post('/simulatePhysicalCapture', missionService.simulatePhysicalCapture);
+router.get('/getDeviceRiskScores', missionService.getDeviceRiskScores);
 
 module.exports = router;
