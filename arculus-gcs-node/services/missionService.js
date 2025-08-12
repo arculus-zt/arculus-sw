@@ -149,6 +149,66 @@ exports.createMission = async (req, res) => {
     }
 };
 
+// exports.createMission = async (req, res) => {
+//     try {
+//       const { authToken, mission_config, supervisors, viewers } = req.body;
+  
+//       const username = getUserFromToken(authToken);
+//       isUserOfType(username, ['Mission Creator'], async (err, isMissionCreator) => {
+//         if (err) {
+//           console.error(err);
+//           return res.status(500).json({ message: 'Internal Server Error' });
+//         }
+//         if (!isMissionCreator) {
+//           return res.status(401).json({ message: 'Unauthorized: Only mission creators can create missions' });
+//         }
+  
+//         const creatorId = await getUserIdFromName(username);
+  
+//         const insertMissionQuery = `INSERT INTO mission (creator_id, mission_config, state) VALUES (?, ?, 'CREATED')`;
+//         const missionResult = await new Promise((resolve, reject) =>
+//           pool.query(insertMissionQuery, [creatorId, mission_config], (e, r) => (e ? reject(e) : resolve(r)))
+//         );
+//         const missionId = missionResult.insertId;
+  
+//         if (supervisors?.length) {
+//           const values = supervisors.map(id => [id, missionId]);
+//           await new Promise((resolve, reject) =>
+//             pool.query('INSERT INTO supervisor (user_id, mission_id) VALUES ?', [values], (e) => (e ? reject(e) : resolve()))
+//           );
+//         }
+  
+//         if (viewers?.length) {
+//           const values = viewers.map(id => [id, missionId]);
+//           await new Promise((resolve, reject) =>
+//             pool.query('INSERT INTO viewer (user_id, mission_id) VALUES ?', [values], (e) => (e ? reject(e) : resolve()))
+//           );
+//         }
+  
+//         // >>> Run Snapshot-1 reset (creates baseline telemetry+risk for Drone 1..4)
+//         try {
+//           const resetFile = path.join(__dirname, '..', 'sql', 'reset_snapshot1.sql');
+//           await runSqlFile(resetFile);
+//           return res.status(200).json({
+//             missionId,
+//             note: 'Mission created; drones reset to baseline snapshot.'
+//           });
+//         } catch (e) {
+//           console.error('reset_snapshot1.sql failed:', e);
+//           // Mission creation still succeeds
+//           return res.status(200).json({
+//             missionId,
+//             warning: 'Mission created, but drone baseline reset failed. Check server logs.'
+//           });
+//         }
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       return res.status(500).json({ message: 'Internal Server Error' });
+//     }
+//   };
+ 
+
 const executeQuery = (query, values) => {
     return new Promise((resolve, reject) => {
         pool.query(query, values, (err, result) => {
@@ -161,6 +221,40 @@ const executeQuery = (query, values) => {
         });
     });
 };
+
+// Run a .sql file with multiple statements
+const runSqlFile = (filePath) => {
+    return new Promise((resolve, reject) => {
+      fs.readFile(filePath, 'utf8', async (err, sql) => {
+        if (err) return reject(err);
+  
+        // naive split on semicolons (safe enough for our scripts)
+        const statements = sql
+          .split(/;\s*$/m)       // split on semicolon at end of line
+          .join(';\n')           // normalize
+          .split(/;\s*\n/)       // split per statement
+          .map(s => s.trim())
+          .filter(Boolean);
+  
+        const conn = await pool.promise().getConnection();
+        try {
+          await conn.beginTransaction();
+          for (const stmt of statements) {
+            console.log('Executing SQL statement:', stmt);
+            await conn.query(stmt);
+          }
+          await conn.commit();
+          resolve();
+        } catch (e) {
+          await conn.rollback();
+          reject(e);
+        } finally {
+          conn.release();
+        }
+      });
+    });
+  };
+ 
 
 
 // Function to retrieve a mission by ID
@@ -638,6 +732,168 @@ exports.executeStealthyReconAndResupply = (req, res) => {
     });
 };
 
+// exports.getDeviceRiskScores = (req, res) => {
+//   const query = `
+//     SELECT 
+//       td.device_name,
+//       td.device_type,
+//       rs.risk_grade
+//     FROM trusted_device td
+//     LEFT JOIN risk_score rs ON td.device_id = rs.device_id
+//     ORDER BY td.device_name
+//   `;
+  
+//   pool.query(query, (err, results) => {
+//     if (err) {
+//       console.error(err);
+//       return res.status(500).json({ message: 'Internal Server Error' });
+//     }
+//     res.status(200).json(results);
+//   });
+// };
+
+
+
+// exports.getDeviceRiskScores = (req, res) => {
+
+//   const query = `
+
+//     SELECT
+
+//       td.device_name,
+
+//       td.device_type,
+
+//       dsr.zt_grade AS risk_grade,
+
+//       dsr.zero_trust_metric,
+
+//       dsr.bayesian_risk,
+
+//       dsr.attack_type,
+
+//       dsr.assessed_at
+
+//     FROM trusted_device td
+
+//     LEFT JOIN (
+
+//       SELECT r.*
+
+//       FROM drone_security_risk r
+
+//       JOIN (
+
+//         SELECT device_id, MAX(risk_id) AS max_risk_id
+
+//         FROM drone_security_risk
+
+//         GROUP BY device_id
+
+//       ) m ON m.device_id = r.device_id AND m.max_risk_id = r.risk_id
+
+//     ) dsr
+
+//       ON dsr.device_id = td.device_id
+
+//     ORDER BY td.device_name;
+
+//   `;
+ 
+//   pool.query(query, (err, results) => {
+
+//     if (err) {
+
+//       console.error(err);
+
+//       return res.status(500).json({ message: 'Internal Server Error' });
+
+//     }
+
+//     return res.status(200).json(results);
+
+//   });
+
+// };
+exports.getCurrentRiskScores = async (req, res) => {
+  try {
+    
+    // Query current risk scores without running reset
+    const selectSql = `
+      SELECT
+        td.device_name,
+        td.device_type,
+        dsr.zt_grade AS risk_grade,
+        dsr.zero_trust_metric,
+        dsr.bayesian_risk,
+        dsr.attack_type,
+        dsr.assessed_at
+      FROM trusted_device td
+      LEFT JOIN (
+        SELECT r.*
+        FROM drone_security_risk r
+        JOIN (
+          SELECT device_id, MAX(risk_id) AS max_risk_id
+          FROM drone_security_risk
+          GROUP BY device_id
+        ) m ON m.device_id = r.device_id AND m.max_risk_id = r.risk_id
+      ) dsr
+        ON dsr.device_id = td.device_id
+      ORDER BY td.device_name;
+    `;
+ 
+    const [rows] = await pool.promise().query(selectSql);
+    
+    console.log(`Retrieved current risk scores for ${rows.length} devices`);
+    return res.status(200).json(rows);
+    
+  } catch (err) {
+    console.error('getCurrentRiskScores failed:', err);
+    return res.status(500).json({ 
+      message: 'Internal Server Error',
+      error: err.message 
+    });
+  }
+};
+exports.getDeviceRiskScores = async (req, res) => {
+  try {
+    // 1) Run the baseline reset (creates/refreshes rows for Drone 1..4)
+    const resetFile = path.join(__dirname, '..', 'sql', 'reset_snapshot1.sql');
+    await runSqlFile(resetFile);
+ 
+    // 2) Query latest risk per device
+    const selectSql = `
+      SELECT
+        td.device_name,
+        td.device_type,
+        dsr.zt_grade AS risk_grade,
+        dsr.zero_trust_metric,
+        dsr.bayesian_risk,
+        dsr.attack_type,
+        dsr.assessed_at
+      FROM trusted_device td
+      LEFT JOIN (
+        SELECT r.*
+        FROM drone_security_risk r
+        JOIN (
+          SELECT device_id, MAX(risk_id) AS max_risk_id
+          FROM drone_security_risk
+          GROUP BY device_id
+        ) m ON m.device_id = r.device_id AND m.max_risk_id = r.risk_id
+      ) dsr
+        ON dsr.device_id = td.device_id
+      ORDER BY td.device_name;
+    `;
+ 
+    const [rows] = await pool.promise().query(selectSql);
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('getDeviceRiskScores failed:', err);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
+ 
 
 exports.simulateBadNetwork = (req, res) => {
     const { controller, type } = req.body;
@@ -658,6 +914,26 @@ exports.simulateGpsSpoofing = (req, res) => {
     // Start the process and send an initial response
     res.status(200).json({ message: 'GPS Spoofing simulation initiated' });
 };
+
+exports.simulateLowBattery = async (req, res) => {
+    try {
+      // (Optional) Auth check similar to others:
+    //   const { authToken } = req.body || {};
+    //   const username = getUserFromToken(authToken);
+    //   const ok = await new Promise(resolve =>
+    //     isUserOfType(username, ['Mission Creator'], (e, yes) => resolve(!e && yes))
+    //   );
+    //   if (!ok) return res.status(403).json({ message: 'Unauthorized' });
+  
+      const file2 = path.join(__dirname, '..', 'sql', 'snapshot2_improve.sql');
+      await runSqlFile(file2);
+  
+      return res.status(200).json({ message: 'Low-battery simulation applied; ZT snapshot updated.' });
+    } catch (e) {
+      console.error('simulateLowBattery failed:', e);
+      return res.status(500).json({ message: 'Failed to update ZT snapshot.' });
+    }
+  };
 
 exports.simulatePhysicalCapture = (req, res) => {
     const {device} = req.body;

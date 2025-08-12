@@ -33,6 +33,8 @@ function CurrentMissions(props) {
   const [showLowBattery, setShowLowBattery] = useState(false);
   const [blinkLowBattery, setBlinkLowBattery] = useState(true);
   const [missionAborted, setMissionAborted] = useState(false);
+  const [storedRiskScores, setStoredRiskScores] = useState({});
+const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
   const userType = props.userType;
   const userName = Cookies.get('user');
   const [logs, setLogs] = useState([]);
@@ -262,22 +264,261 @@ function CurrentMissions(props) {
     }, 2000);
   };
 
-  const handleSimulateLowBattery = () => {
-    setShowLowBattery(!showLowBattery);
-    // This can also trigger an API call to simulate the scenario
-    setTimeout(() => {
-      setLogs(prevLogs => [...prevLogs, {
-        message: "Battery draining faster than anticipated.",
-        color: "red"
+  // const handleSimulateLowBattery = () => {
+  //   setShowLowBattery(!showLowBattery);
+  //   // This can also trigger an API call to simulate the scenario
+  //   setTimeout(() => {
+  //     setLogs(prevLogs => [...prevLogs, {
+  //       message: "Battery draining faster than anticipated.",
+  //       color: "red"
+  //     }]);
+  //     setTimeout(() => {
+  //       setLogs(prevLogs => [...prevLogs, {
+  //         message: "Shifting to low power alternative for pre-planned flight path.",
+  //         color: "green"
+  //       }]);
+  //     }, 1500);
+  //   }, 2000);
+  // };
+  
+//   const handleSimulateLowBattery = () => {
+//   setShowLowBattery(!showLowBattery);
+ 
+//   const payload = {
+//     authToken: encodeURIComponent(Cookies.get('jwtToken')),
+//     // you can include controller/type if you later use them on the server
+//   };
+ 
+//   fetch(`${API_URL}/mission/simulateLowBattery`, {
+//     method: 'POST',
+//     headers: { 'Content-Type': 'application/json' },
+//     body: JSON.stringify(payload),
+//   })
+//     .then((resp) => {
+//       if (!resp.ok) throw new Error('Request failed');
+//       return resp.json();
+//     })
+//     .then(() => {
+//       setTimeout(() => {
+//         setLogs(prev => [...prev, { message: 'Battery draining faster than anticipated.', color: 'red' }]);
+//         setLogs(prev => [...prev, { message: '', color: 'red' }]);
+//         setTimeout(() => {
+//           setLogs(prev => [...prev, { message: 'Shifting to low power alternative for pre-planned flight path.', color: 'green' }]);
+//           setLogs(prev => [...prev, { message: 'Shifting to low power alternative for pre-planned flight path.', color: 'green' }]);
+//         }, 1500);
+//       }, 2000);
+//     })
+//     .catch((err) => {
+//       console.error('Error simulating low battery:', err);
+//       setLogs(prev => [...prev, { message: 'Failed to simulate low battery.', color: 'red' }]);
+//     });
+// };
+// const handleSimulateLowBattery = async () => {
+//   setShowLowBattery(!showLowBattery);
+  
+//   // Declare variables at function scope
+//   let targetDrone = showSupplyDrone ? supplyDeliveryDrone : videoCollectionDrone;
+//   let droneType = showSupplyDrone ? 'Supply Drone' : 'Surveillance Drone';
+//   let riskGradeBefore = 'Unknown';
+//   let riskGradeAfter = 'Unknown';
+  
+//   try {
+//     console.log(`Target drone: ${targetDrone} (${droneType})`);
+    
+//     // 🔥 BEFORE: Get current risk grade (using NEW endpoint without reset)
+//     const beforeResponse = await fetch(`${API_URL}/mission/getCurrentRiskScores?authToken=${encodeURIComponent(Cookies.get('jwtToken'))}`);
+//     if (beforeResponse.ok) {
+//       const beforeRiskData = await beforeResponse.json();
+//       const beforeDevice = beforeRiskData.find(device => device.device_name === targetDrone);
+//       riskGradeBefore = beforeDevice ? beforeDevice.risk_grade : 'Unknown';
+//       console.log(`BEFORE: ${targetDrone} = ${riskGradeBefore}`);
+//     }
+    
+//     // Call simulation API
+//     const payload = {
+//       authToken: encodeURIComponent(Cookies.get('jwtToken')),
+//       deviceName: targetDrone,
+//       attackType: 'LOW_BATTERY'
+//     };
+    
+//     const simulationResponse = await fetch(`${API_URL}/mission/simulateLowBattery`, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify(payload),
+//     });
+    
+//     if (simulationResponse.ok) {
+//       console.log('Simulation API call successful');
+      
+//       // Wait for database update
+//       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+//       // 🔥 AFTER: Get updated risk grade (using NEW endpoint without reset)
+//       const afterResponse = await fetch(`${API_URL}/mission/getCurrentRiskScores?authToken=${encodeURIComponent(Cookies.get('jwtToken'))}`);
+//       if (afterResponse.ok) {
+//         const afterRiskData = await afterResponse.json();
+//         const afterDevice = afterRiskData.find(device => device.device_name === targetDrone);
+//         riskGradeAfter = afterDevice ? afterDevice.risk_grade : 'Unknown';
+//         console.log(`AFTER: ${targetDrone} = ${riskGradeAfter}`);
+//       }
+//     }
+    
+//   } catch (error) {
+//     console.error('Risk monitoring error:', error);
+//   }
+  
+//   // Display log messages
+//   setTimeout(() => {
+//     // First message: Battery issue
+//     setLogs(prev => [...prev, { 
+//       message: `Battery draining faster than anticipated on ${droneType} (${targetDrone}).`, 
+//       color: 'red' 
+//     }]);
+    
+//     // Second message: Risk grade update (if changed)
+//     if (riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown' && riskGradeBefore !== riskGradeAfter) {
+//       setLogs(prev => [...prev, { 
+//         message: `Risk grade updated from ${riskGradeBefore} to ${riskGradeAfter} for ${targetDrone} due to battery attack.`, 
+//         color: 'red' 
+//       }]);
+//     } else if (riskGradeBefore !== 'Unknown') {
+//       setLogs(prev => [...prev, { 
+//         message: `Risk grade remains at ${riskGradeBefore} for ${targetDrone}.`, 
+//         color: 'orange' 
+//       }]);
+//     }
+    
+//     setTimeout(() => {
+//       // Third message: Mitigation action
+//       setLogs(prev => [...prev, { 
+//         message: `Shifting to low power alternative for pre-planned flight path on ${droneType}.`, 
+//         color: 'green' 
+//       }]);
+      
+//       // Fourth message: Security enhancement (if risk changed)
+//       if (riskGradeBefore !== riskGradeAfter && riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown') {
+//         setLogs(prev => [...prev, { 
+//           message: `Deploying secure authentication protocols due to risk grade change - Certificate authentication has been added for ${targetDrone}.`, 
+//           color: 'green' 
+//         }]);
+//       }
+//     }, 1500);
+//   }, 2000);
+// };
+
+  const handleSimulateLowBattery = async () => {
+  setShowLowBattery(!showLowBattery);
+  
+  let targetDrone = showSupplyDrone ? supplyDeliveryDrone : videoCollectionDrone;
+  let droneType = showSupplyDrone ? 'Supply Drone' : 'Surveillance Drone';
+  let riskGradeBefore = 'Unknown';
+  let riskGradeAfter = 'Unknown';
+  
+  try {
+    console.log(`🎯 Target drone: ${targetDrone} (${droneType})`);
+    
+    // 🔥 Check if we have stored values from last 30 seconds
+    const now = Date.now();
+    const hasValidStoredData = riskScoreTimestamp && (now - riskScoreTimestamp) < 30000; // 30 seconds
+    
+    if (hasValidStoredData && storedRiskScores[targetDrone]) {
+      // Use stored value for BEFORE
+      riskGradeBefore = storedRiskScores[targetDrone];
+      console.log(`BEFORE (from stored): ${targetDrone} = ${riskGradeBefore}`);
+    } else {
+      // Fetch fresh data and store ALL drones for 30 seconds
+      const beforeResponse = await fetch(`${API_URL}/mission/getCurrentRiskScores?authToken=${encodeURIComponent(Cookies.get('jwtToken'))}`);
+      if (beforeResponse.ok) {
+        const beforeRiskData = await beforeResponse.json();
+        
+        // 🔥 Store ALL drones' risk scores for 30 seconds
+        const newStoredScores = {};
+        beforeRiskData.forEach(device => {
+          if (device.device_name && device.risk_grade) {
+            newStoredScores[device.device_name] = device.risk_grade;
+          }
+        });
+        
+        setStoredRiskScores(newStoredScores);
+        setRiskScoreTimestamp(now);
+        
+        riskGradeBefore = newStoredScores[targetDrone] || 'Unknown';
+        console.log(`BEFORE (fresh fetch): ${targetDrone} = ${riskGradeBefore}`);
+        console.log(`Stored all drone scores for 30 seconds:`, newStoredScores);
+      }
+    }
+    
+    // Call simulation API
+    const payload = {
+      authToken: encodeURIComponent(Cookies.get('jwtToken')),
+      deviceName: targetDrone,
+      attackType: 'LOW_BATTERY'
+    };
+    
+    const simulationResponse = await fetch(`${API_URL}/mission/simulateLowBattery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    
+    if (simulationResponse.ok) {
+      console.log('Simulation API call successful');
+      
+      // Wait for database update
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // AFTER: Get updated risk grade for TARGET DRONE only
+      const afterResponse = await fetch(`${API_URL}/mission/getCurrentRiskScores?authToken=${encodeURIComponent(Cookies.get('jwtToken'))}`);
+      if (afterResponse.ok) {
+        const afterRiskData = await afterResponse.json();
+        const afterDevice = afterRiskData.find(device => device.device_name === targetDrone);
+        riskGradeAfter = afterDevice ? afterDevice.risk_grade : 'Unknown';
+        console.log(`AFTER: ${targetDrone} = ${riskGradeAfter}`);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Risk monitoring error:', error);
+  }
+  
+  // Display log messages - ONLY about the target drone
+  setTimeout(() => {
+    // First message: Battery issue for target drone
+    setLogs(prev => [...prev, { 
+      message: `Battery draining faster than anticipated.`, 
+      color: 'red' 
+    }]);
+    
+    // Second message: Risk grade change for TARGET DRONE ONLY
+    if (riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown' && riskGradeBefore !== riskGradeAfter) {
+      setLogs(prev => [...prev, { 
+        message: `Risk grade updated: ${targetDrone}: ${riskGradeBefore}→${riskGradeAfter}.`, 
+        color: 'red' 
       }]);
-      setTimeout(() => {
-        setLogs(prevLogs => [...prevLogs, {
-          message: "Shifting to low power alternative for pre-planned flight path.",
-          color: "green"
+    } else if (riskGradeBefore !== 'Unknown') {
+      setLogs(prev => [...prev, { 
+        message: `No risk grade changes detected for ${targetDrone}.`, 
+        color: 'orange' 
+      }]);
+    }
+    
+    setTimeout(() => {
+      // Third message: Mitigation action
+      setLogs(prev => [...prev, { 
+        message: `Shifting to low power alternative for pre-planned flight path.`, 
+        color: 'green' 
+      }]);
+      
+      // Fourth message: Security enhancement (if risk changed)
+      if (riskGradeBefore !== riskGradeAfter && riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown') {
+        setLogs(prev => [...prev, { 
+          message: `Deploying secure authentication protocols due to risk grade change - Certificate authentication has been added for ${targetDrone}.`, 
+          color: 'green' 
         }]);
-      }, 1500);
-    }, 2000);
-  };
+      }
+    }, 1500);
+  }, 2000);
+};
 
   const handleSimulateBruteForceSSH = () => {
     // API call to simulate SSH brute force attack
