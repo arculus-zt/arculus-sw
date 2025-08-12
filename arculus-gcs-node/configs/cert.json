@@ -1,5 +1,6 @@
 {
     "cert_folder": "/home/ubuntu/Arculus/arculus-gcs-node/certs",
     "ca_cert": "ca.cert.pem",
-    "san_conf": "san.cnf"
+    "san_conf": "san.conf",
+    "ca_key": "ca.key.pem"
 }
