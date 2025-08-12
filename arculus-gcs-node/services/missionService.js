@@ -700,10 +700,7 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         const jsonString = JSON.stringify(deviceMap);
 
                         execSync(
-                        `kubectl exec ${controller} -n default -- sh -c 'cat > deviceMap.json <<EOF
-                        ${jsonString}
-                        EOF'`
-                        );
+                        `kubectl exec ${controller} -n default -- sh -c 'cat > deviceMap.json <<EOF${jsonString}EOF'`)
                         const command = `kubectl exec ${controller} -n default -- python3 controller.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP}`;
                         console.log('Executing command:', command);
 
