@@ -14,9 +14,12 @@ router.delete('/deleteMission', missionService.deleteMission);
 router.get('getMissionState', missionService.getMissionState);
 router.post('/executeStealthyReconAndResupply', missionService.executeStealthyReconAndResupply);
 router.post('/simulateBadNetwork', missionService.simulateBadNetwork);
+router.post('/simulateLowBattery', missionService.simulateLowBattery);
 router.post('/downloadMissionManifest', missionService.downloadMissionManifest);
 router.post('/uploadMissionManifest', missionService.uploadMissionManifest);
 router.post('/simulateGpsSpoofing', missionService.simulateGpsSpoofing);
 router.post('/simulatePhysicalCapture', missionService.simulatePhysicalCapture);
+router.get('/getDeviceRiskScores', missionService.getDeviceRiskScores);
+router.get('/getCurrentRiskScores', missionService.getCurrentRiskScores);
 
 module.exports = router;
