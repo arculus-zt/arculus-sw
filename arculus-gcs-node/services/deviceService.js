@@ -503,7 +503,7 @@ spec:
   volumes:
     - name: cert-volume
       secret:
-        secretName: ${nodeName}-cert-secret
+        secretName: ${deviceName}-cert-secret
     `;
 
 
