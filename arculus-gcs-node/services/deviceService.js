@@ -4,13 +4,22 @@ const { exec, execSync } = require('child_process');
 const ip = require('ip');
 const fs = require('fs');
 const temp = require('temp').track();
+const crypto = require('crypto');
 
 var requestList = {};
 var acceptedList = {};
 var blockList = {};
+
 const certConfig = JSON.parse(fs.readFileSync('configs/cert.json'));
 
+
 const imageMap = JSON.parse(fs.readFileSync('configs/dockerImageConfig.json'));
+
+function randomString(length) {
+  return crypto.randomBytes(Math.ceil(length / 2))
+               .toString('hex')  // convert to hex string
+               .slice(0, length); // trim to required length
+}
 
 // WebSocket server
 // joinReqsWss.on('connection', 
@@ -410,19 +419,22 @@ exports.getMoreNodes = (req, res) => {
     });
 };
 
+
+
 function createCerts(nodeName) {
     try {
-      
         execSync(`mkdir ${certConfig.cert_folder}/${nodeName}`);
         execSync(`openssl genrsa -out ${certConfig.cert_folder}/${nodeName}/client.key.pem 2048`)
         execSync(`openssl req -new -key ${certConfig.cert_folder}/${nodeName}/client.key.pem -out ${certConfig.cert_folder}/${nodeName}/client.csr.pem -subj "/C=US/ST=Test/L=Test/O=ClientOrg/CN=${nodeName}"`)
         execSync(`openssl x509 -req -in ${certConfig.cert_folder}/${nodeName}/client.csr.pem -CA ${certConfig.cert_folder}/${certConfig.ca_cert} -CAkey ${certConfig.cert_folder}/${certConfig.ca_key} -CAcreateserial -out ${certConfig.cert_folder}/${nodeName}/client.cert.pem -days 365 -sha256`)
-        execSync(`kubectl create secret generic ${nodeName}-cert-secret --from-file=${certConfig.cert_folder}/${nodeName}/client.cert.pem  --from-file=${certConfig.cert_folder}/${nodeName}/client.key.pem  --from-file=${certConfig.cert_folder}/${certConfig.ca_cert}`)
+        fs.writeFileSync(`${certConfig.cert_folder}/${nodeName}/key.txt`, `${randomString(16)}\n${randomString(16)}`);
+        execSync(`kubectl create secret generic ${nodeName}-cert-secret --from-file=${certConfig.cert_folder}/${nodeName}/client.cert.pem  --from-file=${certConfig.cert_folder}/${nodeName}/client.key.pem  --from-file=${certConfig.cert_folder}/${certConfig.ca_cert} --from-file=${certConfig.cert_folder}/${nodeName}/key.txt`)
     } catch (error) {
         console.error(`Error creating certificates for ${nodeName}:`, error.message);
         throw error;
     }
 }
+
 exports.addTrustedDevice = (req, res) => {
     const { authToken, deviceName, tasks, deviceType } = req.body;
 
@@ -484,15 +496,16 @@ spec:
       - containerPort: ${portMap[deviceType]}
     command:
       - ${selectedCommand.join("\n      - ")}
-      volumeMounts:
-        - name: cert-volume
+    volumeMounts:
+      - name: cert-volume
         mountPath: /certs
         readOnly: true
-    volumes:
-        - name: cert-volume
-        secret:
+  volumes:
+    - name: cert-volume
+      secret:
         secretName: ${nodeName}-cert-secret
     `;
+
 
                 const yamlFilePath = temp.openSync({ suffix: '.yaml' });
                 fs.writeSync(yamlFilePath.fd, podYAML);
@@ -526,9 +539,11 @@ spec:
                                     .then(() => {
                                         // Delete the temporary YAML file
                                         fs.unlinkSync(yamlFilePath.path);
+                                        // Transfer key to controller
+                                        // const keyFilePath = `${certConfig.cert_folder}/${deviceName}/key.txt`;
+                                        
                                         return res.status(200).json({ message: 'Trusted device added successfully' });
-                                    })
-                                    .catch((err) => {
+                                    }).catch((err) => {
                                         console.error(err);
                                         return res.status(500).json({ message: 'Internal Server Error' });
                                     });
