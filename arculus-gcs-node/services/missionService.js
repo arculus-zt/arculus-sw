@@ -7,6 +7,7 @@ const async = require('async');
 const path = require('path');
 const crypto = require('crypto');
 const cryptSecret = fs.readFileSync('configs/ENCRYPTION_SECRET.txt', 'utf8').trim();
+const certConfig = JSON.parse(fs.readFileSync('configs/cert.json'));
 
 // Define global variables
 let gcX = null;
@@ -642,7 +643,7 @@ exports.executeStealthyReconAndResupply = (req, res) => {
 
     for (const drone of [relayDrone, surveillanceDrone, supplyDrone]) {
         try {
-            execSync(`kubectl cp ${config.cert_folder}/${drone}/key.txt ${controller}:/app/controller/${drone}_key.txt`);
+            execSync(`kubectl cp ${certConfig.cert_folder}/${drone}/key.txt ${controller}:/app/controller/${drone}_key.txt`);
         } catch (e) {
             console.error(`Error copying drone keys ${drone}:`, e);
         }
