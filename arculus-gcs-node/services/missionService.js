@@ -690,7 +690,8 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         ipCache[relayDrone] = relayDroneIP;
                         ipCache[surveillanceDrone] = surveillanceDroneIP;
                         ipCache[supplyDrone] = supplyDroneIP;
-
+                        console.log('IP Cache:', ipCache);
+                        console.log('IP cache', JSON.stringify(ipCache));
                         execSync(`kubectl exec ${controller} -n default -- sh -c 'echo ${JSON.stringify(ipCache)} > deviceMap.json'`);
 
                         const command = `kubectl exec ${controller} -n default -- python3 controller.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP}`;
