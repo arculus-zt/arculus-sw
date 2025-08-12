@@ -700,6 +700,13 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                                         exec(`kubectl exec ${controller} -n default -- sh -c 'echo "" > mission_state.json'`);
                                         exec(`kubectl exec ${controller} -n default -- sh -c 'echo "connected" > survState.txt'`);
                                         exec(`kubectl exec ${controller} -n default -- sh -c 'echo "connected" > supState.txt'`);
+                                        for (const drone of [relayDrone, surveillanceDrone, supplyDrone]) {
+                                            try {
+                                                execSync(`kubectl cp ${config.cert_folder}/${drone}/key.txt ${controller}:/app/controller/${drone}_key.txt`);
+                                            } catch (e) {
+                                                console.error(`Error copying drone keys ${drone}:`, e);
+                                            }
+                                        }
                                         console.log('Mission status updated to ABORTED.');
                                         res.status(200).json({ message: 'Mission failed during execution.' });
                                     }
