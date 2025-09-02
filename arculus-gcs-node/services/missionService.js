@@ -7,6 +7,8 @@ const async = require('async');
 const path = require('path');
 const crypto = require('crypto');
 const cryptSecret = fs.readFileSync('configs/ENCRYPTION_SECRET.txt', 'utf8').trim();
+const certConfig = JSON.parse(fs.readFileSync('configs/cert.json'));
+const { applySnapshotFromJson } = require('./snapshots');
 
 // Define global variables
 let gcX = null;
@@ -640,6 +642,14 @@ exports.executeStealthyReconAndResupply = (req, res) => {
         });
     };
 
+    for (const drone of [relayDrone, surveillanceDrone, supplyDrone]) {
+        try {
+            execSync(`kubectl cp ${certConfig.cert_folder}/${drone}/key.txt ${controller}:/app/controller/${drone}_key.txt`);
+        } catch (e) {
+            console.error(`Error copying drone keys ${drone}:`, e);
+        }
+    }
+
     res.status(200).json({ message: 'IP retrieval initiated' });
 
     executeKubectlExecAndGetIP(supplyDrone, (error, supplyDroneIP) => {
@@ -681,6 +691,19 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         ipCache[relayDrone] = relayDroneIP;
                         ipCache[surveillanceDrone] = surveillanceDroneIP;
                         ipCache[supplyDrone] = supplyDroneIP;
+                        
+                        const deviceMap = {
+                        [relayDrone]: relayDroneIP,
+                        [surveillanceDrone]: surveillanceDroneIP,
+                        [supplyDrone]: supplyDroneIP,
+                        };
+
+
+                        execSync(
+                        `kubectl exec ${controller} -n default -- sh -c 'cat > deviceMap.json << "EOF"
+${JSON.stringify(deviceMap)}
+EOF'`
+                        );
                         const command = `kubectl exec ${controller} -n default -- python3 controller.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP}`;
                         console.log('Executing command:', command);
 
@@ -855,11 +878,37 @@ exports.getCurrentRiskScores = async (req, res) => {
     });
   }
 };
+
+// Snapshot 1 (e.g., more severe values)
+async function snapshot1(attackMap){
+    try {
+      // Optional: clean only these drones
+      await runSqlFile(path.join(__dirname, '..', 'sql', 'snapshot_cleanup.sql'));
+  
+      // Map each drone to an attack type; Node will pick a random set for each
+      console.log('Applying Snapshot 1 with attack map:', attackMap);
+ 
+  
+      await applySnapshotFromJson(attackMap);
+      return ({ message: 'Snapshot 1 applied from JSON.' });
+    } catch (e) {
+      console.error('snapshot1 failed:', e);
+      //res.status(500).json({ message: 'Failed to apply Snapshot 1.' });
+    }
+  };
+
 exports.getDeviceRiskScores = async (req, res) => {
   try {
     // 1) Run the baseline reset (creates/refreshes rows for Drone 1..4)
-    const resetFile = path.join(__dirname, '..', 'sql', 'reset_snapshot1.sql');
-    await runSqlFile(resetFile);
+    // const resetFile = path.join(__dirname, '..', 'sql', 'reset_snapshot1.sql');
+    // await runSqlFile(resetFile);
+    const attackMap = {
+        'drone1': 'Normal',
+        'drone2': 'Normal',
+        'drone3': 'Normal',
+        'dronesurv': 'Normal'
+      };
+    await snapshot1(attackMap);
  
     // 2) Query latest risk per device
     const selectSql = `
@@ -925,8 +974,21 @@ exports.simulateLowBattery = async (req, res) => {
     //   );
     //   if (!ok) return res.status(403).json({ message: 'Unauthorized' });
   
-      const file2 = path.join(__dirname, '..', 'sql', 'snapshot2_improve.sql');
-      await runSqlFile(file2);
+    //   const file2 = path.join(__dirname, '..', 'sql', 'snapshot2_improve.sql');
+    //   await runSqlFile(file2);
+      const attackMap = {
+
+      'drone1': 'Physical Capture',
+
+      'drone2': 'Physical Capture',
+
+      'drone3': 'Physical Capture',
+
+      'dronesurv': 'Physical Capture'
+
+    };
+
+      await snapshot2(attackMap);
   
       return res.status(200).json({ message: 'Low-battery simulation applied; ZT snapshot updated.' });
     } catch (e) {
@@ -1049,4 +1111,32 @@ exports.uploadMissionManifest = (req, res) => {
         }
     });
 };
+ 
+// Snapshot 2 (improved posture → pick lower-risk combos if you want,
+
+// or simply keep attack types but the random set may be milder)
+
+async function snapshot2(attackMap){
+
+  try {
+
+    // Optionally skip cleanup to append a new timepoint; or keep it if you want overwrite behavior
+
+    // await runSqlFile(path.join(__dirname, '..', 'sql', 'snapshot_cleanup.sql'));
+ 
+    await applySnapshotFromJson(attackMap);
+
+    //res.status(200).json({ message: 'Snapshot 2 applied from JSON.' });
+    return({ message: 'Snapshot 2 applied from JSON.' });
+
+  } catch (e) {
+
+    console.error('snapshot2 failed:', e);
+
+    //res.status(500).json({ message: 'Failed to apply Snapshot 2.' });
+
+  }
+
+};
+ 
 
