@@ -9,6 +9,9 @@ const crypto = require('crypto');
 const cryptSecret = fs.readFileSync('configs/ENCRYPTION_SECRET.txt', 'utf8').trim();
 const certConfig = JSON.parse(fs.readFileSync('configs/cert.json'));
 const { applySnapshotFromJson } = require('./snapshots');
+const NOAUTH = 'NOAUTH';
+const AUTH_TOKEN_BASED = 'AUTH_TOKEN_BASED';
+const AUTH_CERT_BASED = 'AUTH_CERT_BASED';
 
 // Define global variables
 let gcX = null;
@@ -692,10 +695,10 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         ipCache[surveillanceDrone] = surveillanceDroneIP;
                         ipCache[supplyDrone] = supplyDroneIP;
                         
-                        const deviceMap = {
-                        [relayDrone]: relayDroneIP,
-                        [surveillanceDrone]: surveillanceDroneIP,
-                        [supplyDrone]: supplyDroneIP,
+                        const deviceMap = [
+                        [relayDroneIP]: [relayDrone, NOAUTH],
+                        [surveillanceDroneIP]: [surveillanceDrone, AUTH_CERT_BASED],
+                        [supplyDroneIP]: [supplyDrone, AUTH_TOKEN_BASED],
                         };
 
 

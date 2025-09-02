@@ -4,6 +4,87 @@ import math
 import json
 import sys
 import os
+from Crypto.Cipher import AES
+import base64
+import types
+import warnings
+
+warnings.filterwarnings("ignore")
+
+NOAUTH = 'NOAUTH';
+AUTH_TOKEN_BASED = 'AUTH_TOKEN_BASED';
+AUTH_CERT_BASED = 'AUTH_CERT_BASED';
+
+
+def pad(text):
+    padding_len = 16 - (len(text) % 16)
+    return text + chr(padding_len) * padding_len
+
+def unpad(text):
+    padding_len = ord(text[-1])
+    return text[:-padding_len]
+
+def encrypt(plaintext: str, AES_KEY, AES_IV) -> str:
+    cipher = AES.new(AES_KEY, AES.MODE_CBC, AES_IV)
+    padded = pad(plaintext)
+    encrypted = cipher.encrypt(padded.encode())
+    return base64.b64encode(encrypted).decode()
+
+def decrypt(ciphertext_b64: str, AES_KEY, AES_IV) -> str:
+    cipher = AES.new(AES_KEY, AES.MODE_CBC, AES_IV)
+    encrypted = base64.b64decode(ciphertext_b64)
+    decrypted_padded = cipher.decrypt(encrypted).decode()
+    return unpad(decrypted_padded)
+
+
+try:
+    with open('deviceMap.json', 'r') as file:
+        deviceMap = json.load(file)
+except FileNotFoundError:
+    deviceMap = {}
+
+def make_post_request(ip, url, data):
+    AUTH_MODE = NOAUTH
+    DEVICE_NAME = None
+    AES_KEY, AES_IV = None, None
+    if ip in deviceMap:
+        AUTH_MODE = deviceMap[ip][1]
+        DEVICE_NAME = deviceMap[ip][0]
+        
+    if AUTH_MODE == AUTH_TOKEN_BASED:
+        try:
+            with open(f'{DEVICE_NAME}_key.txt', 'r') as f:
+                AES_KEY, AES_IV = f.read().strip().split('\n')
+                AES_KEY = bytes(AES_KEY, 'utf-8')
+                AES_IV = bytes(AES_IV, 'utf-8')
+        except FileNotFoundError:
+            print(f"Key file for {DEVICE_NAME} not found. so switching to NOAUTH mode.")
+            AUTH_MODE = NOAUTH
+
+    if AUTH_MODE == AUTH_TOKEN_BASED:
+        data = {"encrypted": encrypt(json.dumps(data), AES_KEY, AES_IV)}
+        response = requests.post(url, json=data)
+        json_response = response.json()
+        if 'encrypted' in json_response:
+            decrypted_response = decrypt(json_response['encrypted'], AES_KEY, AES_IV)
+            response._content = bytes(decrypted_response, 'utf-8')
+    elif AUTH_MODE == AUTH_CERT_BASED:
+        response = requests.post(
+            url,
+            json=data, 
+            cert=("/certs/client.cert.pem", "/certs/client.key.pem"),  # Client certificate and key
+            verify=False
+            # verify="/certs/ca.cert.pem"  # Verify server cert against CA)
+        )
+    else:
+        response = requests.post(url, json=data)
+
+
+    return response
+   
+
+
+
 # File path for saving mission state
 MISSION_STATE_FILE = "mission_state.json"
 LOG_FILE = "mission_log.txt"
@@ -104,10 +185,10 @@ def command_to_move(x_coord, y_coord, move_distance, slope):
     return new_x, new_y
 
 # Start the mission by making a POST request to the first server
-response = requests.post(f'http://{survIp}:3050/startMission', json={'initX': initX, 'initY': initY, 'destX': destX, 'destY': destY})
+response = make_post_request(survIp, f'http://{survIp}:3050/startMission', {'initX': initX, 'initY': initY, 'destX': destX, 'destY': destY})
 if response.ok:
     # Continue if response is OK
-    requests.post(f'http://{supIp}:4050/startMission', json={'initX': initX, 'initY': initY})
+    make_post_request(supIp, f'http://{supIp}:4050/startMission', {'initX': initX, 'initY': initY})
     
     # Calculate the destination direction
     destinationDirection = (destY - initY) / (destX - initX) if (destX - initX) != 0 else -24
@@ -126,7 +207,7 @@ if response.ok:
             tokens = survSpoof.split(',')
             slope = -24 if tokens[0] == "null" else float(tokens[0])
             distance = -24 if tokens[1] == "null" else float(tokens[1])
-            response = requests.post(survMoveCommand, json={'slope': slope, 'distance': distance})   
+            response = make_post_request(survIp, survMoveCommand, {'slope': slope, 'distance': distance})   
             response_data = response.json()
             if response.ok:
                 if response_data.get('message') == "Moved":
@@ -141,7 +222,7 @@ if response.ok:
             time.sleep(1)
 
         elif survState == 'connected':
-            response = requests.post(survMoveCommand, json={'slope': destinationDirection, 'distance': 40 * returnFlag})
+            response = make_post_request(survIp, survMoveCommand, {'slope': destinationDirection, 'distance': 40 * returnFlag})
             response_data = response.json()
             if response.ok:
                 if response_data.get('message') == "Moved":
@@ -292,7 +373,7 @@ if response.ok:
             tokens = supSpoof.split(',')
             slope = -24 if tokens[0] == "null" else float(tokens[0])
             distance = -24 if tokens[1] == "null" else float(tokens[1])
-            response = requests.post(supMoveCommand, json={'slope': slope, 'distance': distance})            
+            response = make_post_request(supIp, supMoveCommand, {'slope': slope, 'distance': distance})            
             response_data = response.json()
             if response.ok and response_data.get('message') == "Moved":
                 # Update coordinates if moved
@@ -321,7 +402,7 @@ if response.ok:
             clear_mission_state()
             break
 
-        response = requests.post(supMoveCommand, json={'slope': destinationDirection, 'distance': 40})
+        response = make_post_request(supIp, supMoveCommand, {'slope': destinationDirection, 'distance': 40})
         if response.ok:
             response_data = response.json()
             if response_data.get('message') == "Moved":
@@ -350,7 +431,7 @@ if response.ok:
             tokens = supSpoof.split(',')
             slope = -24 if tokens[0] == "null" else float(tokens[0])
             distance = -24 if tokens[1] == "null" else float(tokens[1])
-            response = requests.post(supMoveCommand, json={'slope': slope, 'distance': distance})            
+            response = make_post_request(supIp, supMoveCommand, {'slope': slope, 'distance': distance})            
             response_data = response.json()
             if response.ok and response_data.get('message') == "Moved":
                 # Update coordinates if moved
@@ -374,7 +455,7 @@ if response.ok:
             break
 
         if supState == 'connected':
-            response = requests.post(supMoveCommand, json={'slope': destinationDirection, 'distance': 40})
+            response = make_post_request(supIp, supMoveCommand, {'slope': destinationDirection, 'distance': 40})
             if response.ok:
                 response_data = response.json()
                 if response_data.get('message') == "Moved":
