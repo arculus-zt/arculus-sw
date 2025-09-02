@@ -492,7 +492,7 @@ const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
     // Second message: Risk grade change for TARGET DRONE ONLY
     if (riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown' && riskGradeBefore !== riskGradeAfter) {
       setLogs(prev => [...prev, { 
-        message: `Risk grade updated: ${targetDrone}: ${riskGradeBefore}→${riskGradeAfter}.`, 
+        message: `Risk grade of ${targetDrone} updated from ${riskGradeBefore} to ${riskGradeAfter}.`, 
         color: 'red' 
       }]);
     } else if (riskGradeBefore !== 'Unknown') {
@@ -512,7 +512,7 @@ const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
       // Fourth message: Security enhancement (if risk changed)
       if (riskGradeBefore !== riskGradeAfter && riskGradeBefore !== 'Unknown' && riskGradeAfter !== 'Unknown') {
         setLogs(prev => [...prev, { 
-          message: `Deploying secure authentication protocols due to risk grade change - Certificate authentication has been added for ${targetDrone}.`, 
+          message: `Switching from Token-based to Certificate Authentication for ${targetDrone}.`, 
           color: 'green' 
         }]);
       }
