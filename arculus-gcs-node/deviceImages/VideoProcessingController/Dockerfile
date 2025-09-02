@@ -4,7 +4,7 @@ RUN apk update && apk add --no-cache python3 py3-pip && pip install Flask reques
 
 WORKDIR /app/controller
 
-COPY * .
+COPY . .
 
 EXPOSE 5050
 
