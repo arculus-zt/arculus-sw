@@ -695,7 +695,7 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         ipCache[surveillanceDrone] = surveillanceDroneIP;
                         ipCache[supplyDrone] = supplyDroneIP;
                         
-                        const deviceMap = [
+                        const deviceMap = {
                         [relayDroneIP]: [relayDrone, NOAUTH],
                         [surveillanceDroneIP]: [surveillanceDrone, AUTH_CERT_BASED],
                         [supplyDroneIP]: [supplyDrone, AUTH_TOKEN_BASED],
