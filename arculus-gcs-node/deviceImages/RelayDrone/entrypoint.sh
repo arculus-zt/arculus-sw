@@ -1,7 +1,25 @@
-#!/bin/sh
+#!/bin/bash
+
+WATCH_FILE="auth_mode.txt"  # The file to watch
+
+echo "Watching $WATCH_FILE for changes..."
+
+# Run the script initially
+python3 relayDrone.py &
+PID=$!
 
 while true; do
-    python relayDrone.py
-    echo "Flask exited. Restarting in 2 seconds..."
-    sleep 0.0001
+    # Wait for modifications
+    inotifywait -e modify,create,delete "$WATCH_FILE"
+
+    # Kill the running script
+    echo "$(date): Change detected. Restarting $WATCH_FILE..."
+    kill $PID 2>/dev/null
+
+    # Give a moment for cleanup
+    sleep 1
+
+    # Restart the script
+    python3 relayDrone.py &
+    PID=$!
 done
