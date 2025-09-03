@@ -124,6 +124,7 @@ if __name__ == '__main__':
     CURRENT_MODE = get_mode()
     if CURRENT_MODE == NOAUTH:
         myjsonify = jsonify
+        app.run(host='0.0.0.0', port=5050)
     elif CURRENT_MODE == AUTH_TOKEN_BASED:
         AES_KEY, AES_IV = get_encryption_key_and_iv()
         myjsonify = lambda data: jsonify({
@@ -136,4 +137,4 @@ if __name__ == '__main__':
         context = ssl.change_mech(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(certfile="/certs/client.cert.pem", keyfile="/certs/client.key.pem")
         context.load_verify_locations(cafile="/certs/ca.cert.pem")
-        app.run(host='0.0.0.0', port=5050)
+        app.run(host='0.0.0.0', port=5050, ssl_context=context)
