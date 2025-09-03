@@ -695,11 +695,17 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         ipCache[surveillanceDrone] = surveillanceDroneIP;
                         ipCache[supplyDrone] = supplyDroneIP;
                         
+                        //TODO: Available options for auth modes: NOAUTH, AUTH_CERT_BASED, AUTH_TOKEN_BASED
                         const deviceMap = {
                         [relayDroneIP]: [relayDrone, NOAUTH],
-                        [surveillanceDroneIP]: [surveillanceDrone, AUTH_CERT_BASED],
-                        [supplyDroneIP]: [supplyDrone, AUTH_TOKEN_BASED],
+                        [surveillanceDroneIP]: [surveillanceDrone, NOAUTH],
+                        [supplyDroneIP]: [supplyDrone, NOAUTH],
                         };
+
+                        // TODO: Set auth modes based on risk scores or other criteria and update if needed
+                        for (const drone of [relayDrone, surveillanceDrone, supplyDrone]) {
+                            exec(`kubectl exec ${drone} -n default -- sh -c 'echo "${NOAUTH}" > auth_mode.txt'`);
+                        }
 
 
                         execSync(
