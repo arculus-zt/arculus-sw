@@ -70,7 +70,7 @@ def make_post_request(ip, url, data):
             response._content = bytes(decrypted_response, 'utf-8')
     elif AUTH_MODE == AUTH_CERT_BASED:
         response = requests.post(
-            url,
+            url.replace("http://", "https://"),
             json=data, 
             cert=("/certs/client.cert.pem", "/certs/client.key.pem"),  # Client certificate and key
             verify=False
