@@ -859,6 +859,7 @@ exports.getCurrentRiskScores = async (req, res) => {
         dsr.zero_trust_metric,
         dsr.bayesian_risk,
         dsr.attack_type,
+        dsr.auth_type,
         dsr.assessed_at
       FROM trusted_device td
       LEFT JOIN (

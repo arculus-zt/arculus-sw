@@ -1,9 +1,30 @@
-// controllers/snapshots.js
 const path = require('path');
 const fs = require('fs');
 const pool = require('../modules/arculusDbConnection');// your mysql2 pool
 const { getRandomTelemetry } = require('../lib/telemetry');
 const { computeBayesianRisk, computeZeroTrustMetric, computeZTGrade, formatRemarks } = require('../lib/risk');
+
+// Auth type constants
+const NOAUTH = 'NOAUTH';
+const AUTH_TOKEN_BASED = 'AUTH_TOKEN_BASED';
+const AUTH_CERT_BASED = 'AUTH_CERT_BASED';
+
+// Function to determine auth_type based on zt_grade
+function getAuthType(zt_grade) {
+  switch (zt_grade.toUpperCase()) {
+    case 'A':
+      return AUTH_CERT_BASED;
+    case 'B':
+    case 'C':
+      return AUTH_TOKEN_BASED;
+    case 'D':
+    case 'E':
+      return NOAUTH;
+    default:
+      // Fallback for unknown grades
+      return NOAUTH;
+  }
+}
  
 // helper: find device_id by drone name (supports underscore/space normalization like your SQL)
 async function getDeviceId(conn, droneName) {
@@ -44,11 +65,9 @@ async function applySnapshotFromJson(attackMap /* object: droneName->attackType 
  
     for (const droneName of drones) {
       const attackType = attackMap[droneName]; // 'Faker' | 'Flooder' | 'Physical Capture'
-      var t = { transmission_rate: 10, energy_consumption: 30, unauthorized_access_attempts: 1, signal_strength: 90 };
-    //   const t = getRandomTelemetry(attackType);
+      var t = { transmission_rate: 8, energy_consumption: 20, unauthorized_access_attempts: 0, signal_strength: 90 };
+      
       if (['Faker', 'Flooder', 'Physical Capture'].includes(attackType)) {
-        //throw new Error(`Invalid attackType="${attackType}" for drone="${droneName}"`);
-        //t = { transmission_rate: 10, energy_consumption: 30, unauthorized_access_attempts: 1, signal_strength: 90}
         t = getRandomTelemetry(attackType);
       } // else 'Normal' or unknown => use default t
  
@@ -77,14 +96,15 @@ async function applySnapshotFromJson(attackMap /* object: droneName->attackType 
       const bayesian_risk = computeBayesianRisk(t);
       const zero_trust_metric = computeZeroTrustMetric(bayesian_risk);
       const zt_grade = computeZTGrade(zero_trust_metric);
+      const auth_type = getAuthType(zt_grade); // NEW: Determine auth_type based on zt_grade
       const remarks = formatRemarks(t);
  
-      // Insert risk row
+      // Insert risk row with auth_type
       await conn.query(
         `INSERT INTO drone_security_risk
-          (device_id, drone_name, bayesian_risk, attack_type, zero_trust_metric, zt_grade, remarks)
-         VALUES (?,?,?,?,?,?,?)`,
-        [deviceId, droneName, bayesian_risk, attackType, zero_trust_metric, zt_grade, remarks]
+          (device_id, drone_name, bayesian_risk, attack_type, zero_trust_metric, zt_grade, auth_type, remarks)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [deviceId, droneName, bayesian_risk, attackType, zero_trust_metric, zt_grade, auth_type, remarks]
       );
     }
  
@@ -97,4 +117,4 @@ async function applySnapshotFromJson(attackMap /* object: droneName->attackType 
   }
 }
  
-module.exports = { applySnapshotFromJson };
+module.exports = { applySnapshotFromJson, getAuthType, NOAUTH, AUTH_TOKEN_BASED, AUTH_CERT_BASED };
