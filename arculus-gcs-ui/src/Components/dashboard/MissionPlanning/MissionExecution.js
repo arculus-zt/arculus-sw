@@ -31,7 +31,18 @@ const MissionExecution = (props) => {
 
     const [showMissionAccomplished, setShowMissionAccomplished] = useState(false);
 
-    const { handleTabChange, setSurvCommEstablished, setSurvCommLost, showSupplyDrone, setShowSupplyDrone, showLowBattery, blinkLowBattery, missionAborted, survCommEstablished, setLogs } = props;
+    const { missionType, handleTabChange, setSurvCommEstablished, setSurvCommLost, showSupplyDrone, setShowSupplyDrone, showLowBattery, blinkLowBattery, missionAborted, survCommEstablished, setLogs, showRFDetected, blinkRFDrone } = props;
+    const isArmedMission = missionType === 'Stealthy Reconnaissance and Payload Employment';
+    const destinationLabel = isArmedMission ? 'Enemy Air Base' : 'Supply Destination';
+    const destinationImage = isArmedMission ? 'enemyAirBase.png' : 'soldier.png';
+    const droneLabel = isArmedMission ? 'Armed Payload Drone' : 'Supply Drone';
+    const droneImage = isArmedMission ? 'armedPayloadDrone.png' : 'supplydrone.png';
+    const enemyLabel = isArmedMission ? 'Enemy Target' : 'Enemy Air Defense';
+    const enemyImage = isArmedMission ? 'aircraft.png' : 'airdefense.png';
+    const threatMessage = isArmedMission ? '🎯 Target Identified!' : '⚠️ Threat Detected!';
+    const successMessage = isArmedMission 
+        ? "Mission Accomplished! Target Destroyed!" 
+        : "Mission Accomplished! Supplies Have Been Delivered!";
 
     useEffect(() => {
         const threatTextInterval = setInterval(() => {
@@ -138,9 +149,20 @@ const MissionExecution = (props) => {
             <image href="groundControl.png" x={groundStation.x} y={groundStation.y} width="70" height="70" />
             <rect x={groundStation.x - 25} y={groundStation.y + 80} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
             <text x={groundStation.x + 50} y={groundStation.y + 100} fontSize="15" fill="white" textAnchor="middle" fontWeight="bold">Ground Station</text>
-            <image href="soldier.png" x={endPosition.x} y={endPosition.y} width="70" height="70" />
-            <rect x={endPosition.x - 25} y={endPosition.y + 80} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
-            <text x={endPosition.x + 50} y={endPosition.y + 100} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">Supply Destination</text>
+            {isArmedMission && (
+            <circle cx={endPosition.x} cy={endPosition.y} r="100" fill="none" stroke="black" strokeWidth="3"/>
+            )}
+            <image href={destinationImage} x={endPosition.x - (isArmedMission ? 75 : 35)} y={endPosition.y - (isArmedMission ? 75 : 35)} width={isArmedMission ? 150 : 70} height={isArmedMission ? 150 : 70} />
+            <rect x={endPosition.x - 75} y={endPosition.y + (isArmedMission ? 85 : 80)} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
+            <text x={endPosition.x} y={endPosition.y + (isArmedMission ? 105 : 100)} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">{destinationLabel}</text>
+
+            {isArmedMission && showRFDetected && (
+              <>
+                {/* Red outlined circle around RF scanner */}
+                <circle cx={endPosition.x - 40} cy={endPosition.y + 40} r="35" fill="none" stroke="red" strokeWidth="3"/>
+                <image href="rfSpectrumScanner.png" x={endPosition.x - 65} y={endPosition.y + 15} width="50" height="50" />
+              </>
+            )}
 
             {showSurveillanceDrone && (
                 <>
@@ -163,32 +185,35 @@ const MissionExecution = (props) => {
                 </>
             )}
 
-            {showSupplyDrone && (
-                <>
-                    <polyline points={supplyPathString} fill="none" stroke="blue" strokeWidth="2" strokeDasharray="5,5" />
-                    {showLowBattery && blinkLowBattery && (
-                        <image href="lowBattery.png" x={supplyDronePosition.x + 15} y={supplyDronePosition.y - 20} width="40" height="40" />
-                    )}
-                    <image href="supplydrone.png" x={supplyDronePosition.x} y={supplyDronePosition.y} width="70" height="70" />
-                    <rect x={supplyDronePosition.x - 25} y={supplyDronePosition.y + 60} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
-                    <text x={supplyDronePosition.x + 50} y={supplyDronePosition.y + 80} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">Supply Drone</text>
-                </>
-            )}
-
             {showAirDefense && (
                 <>
-                    <circle cx={airDefensePosition.x} cy={airDefensePosition.y} r={airDefenseRadius} fill="rgba(255,192,203,0.5)" stroke="red" strokeWidth="2" strokeDasharray="10,5" />
-                    <image href="airdefense.png" x={airDefensePosition.x - 25} y={airDefensePosition.y - 25} width="70" height="70" />
-                    <rect x={airDefensePosition.x - 25} y={airDefensePosition.y + airDefenseRadius - 10} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
-                    <text x={airDefensePosition.x + 50} y={airDefensePosition.y + airDefenseRadius + 12} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">Enemy Air Defense</text>
+                    <circle cx={airDefensePosition.x} cy={airDefensePosition.y} r={isArmedMission ? 60 : airDefenseRadius} fill="rgba(255,192,203,0.5)" stroke="red" strokeWidth="2" strokeDasharray="10,5" />
+                    <image href={enemyImage} x={airDefensePosition.x - 25} y={airDefensePosition.y - 25} width="70" height="70" />
+                    <rect x={airDefensePosition.x - 25} y={airDefensePosition.y + (isArmedMission ? 60 : airDefenseRadius) - 10} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
+                    <text x={airDefensePosition.x + 50} y={airDefensePosition.y + (isArmedMission ? 60 : airDefenseRadius) + 12} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">{enemyLabel}</text>
                     {showThreatText && (
-                        <text x={airDefensePosition.x} y={airDefensePosition.y + airDefenseRadius + 50} fill="red" fontSize="20" textAnchor="middle" fontWeight="bold">
-                            ⚠️ Threat Detected!
+                        <text x={isArmedMission ? airDefensePosition.x + 145 : airDefensePosition.x} y={isArmedMission ? airDefensePosition.y + 35 : airDefensePosition.y + airDefenseRadius + 50} fill="red" fontSize="20" textAnchor="middle" fontWeight="bold">
+                            {threatMessage}
                         </text>
                     )}
 
                 </>
             )}
+
+            {showSupplyDrone && (
+                <>
+                    <polyline points={supplyPathString} fill="none" stroke="blue" strokeWidth="2" strokeDasharray="5,5" />
+                    {showLowBattery && blinkLowBattery && (
+                      <image href="lowBattery.png" x={supplyDronePosition.x + 15} y={supplyDronePosition.y - 20} width="40" height="40" />
+                    )}
+                    <g opacity={showRFDetected && !blinkRFDrone ? 0.3 : 1}>
+                      <image href={droneImage} x={supplyDronePosition.x} y={supplyDronePosition.y} width="70" height="70" />
+                      <rect x={supplyDronePosition.x - 25} y={supplyDronePosition.y + 60} width="150" height="30" fill="black" stroke="white" strokeWidth="2" rx="15" ry="15" />
+                      <text x={supplyDronePosition.x + 50} y={supplyDronePosition.y + 80} fill="white" fontSize="15" textAnchor="middle" fontWeight="bold">{droneLabel}</text>
+                    </g>
+                </>
+            )}
+
             <foreignObject x="80%" y="0%" width="20%" height="20%">
                 <div style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px' }}>
                     <div style={{ color: 'yellow' }}>
@@ -198,13 +223,13 @@ const MissionExecution = (props) => {
                         Surveillance Drone: {position.x ? `${position.x.toFixed(2)}, ${position.y.toFixed(2)}` : "Unknown"}
                     </div>
                     <div style={{ color: 'lightblue' }}>
-                        Supply Drone: {supplyDronePosition.x ? `${supplyDronePosition.x.toFixed(2)}, ${supplyDronePosition.y.toFixed(2)}` : "Unknown"}
+                        {droneLabel}: {supplyDronePosition.x ? `${supplyDronePosition.x.toFixed(2)}, ${supplyDronePosition.y.toFixed(2)}` : "Unknown"}
                     </div>
                     <div style={{ color: 'pink' }}>
-                        Destination: {endPosition.x ? `${endPosition.x.toFixed(2)}, ${endPosition.y.toFixed(2)}` : "Unknown"}
+                        {destinationLabel}: {endPosition.x ? `${endPosition.x.toFixed(2)}, ${endPosition.y.toFixed(2)}` : "Unknown"}
                     </div>
                     <div style={{ color: 'red' }}>
-                        Enemy Air Defense: {showAirDefense ? `${airDefensePosition.x.toFixed(2)}, ${airDefensePosition.y.toFixed(2)}` : "Unknown"}
+                        {enemyLabel}: {showAirDefense ? `${airDefensePosition.x.toFixed(2)}, ${airDefensePosition.y.toFixed(2)}` : "Unknown"}
                     </div>
                 </div>
             </foreignObject>
@@ -234,7 +259,7 @@ const MissionExecution = (props) => {
 
                     {missionAborted
                         ? "Mission Aborted in Safe Mode. All compromised drones have turned their containers down."
-                        : "Mission Accomplished! Supplies Have Been Delivered!"
+                        : successMessage
                     }                </div>
             )}
         </>

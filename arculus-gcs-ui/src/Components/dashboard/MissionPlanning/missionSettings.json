@@ -30,6 +30,35 @@
             ]
         },
         {
+            "mission": "Stealthy Reconnaissance and Payload Employment",
+            "devices": [
+                {
+                    "Video-Analytic Route Planner (Ground Control)::Video Analytic Controller": [
+                        "send_command",
+                        "receive_video",
+                        "receive_posdata"
+                    ],
+                    "Video Collection Surveillance Drone::Video Capture Drone": [
+                        "send_video",
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Supply Delivery Drone::Freight Drone": [
+                        "receive_command",
+                        "send_posdata"
+                    ],
+                    "Communication Relay Drone::Communication Relay Drone": [
+                        "receive_command",
+                        "send_command",
+                        "send_video",
+                        "send_posdata",
+                        "receive_posdata",
+                        "receive_video"
+                    ]
+                }
+            ]
+        },
+        {
             "mission": "Mine-Aware Search and Rescue",
             "devices": [
                 {
