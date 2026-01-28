@@ -702,18 +702,18 @@ exports.executeStealthyReconAndResupply = (req, res) => {
                         [supplyDroneIP]: [supplyDrone, NOAUTH],
                         };
 
-                        // TODO: Set auth modes based on risk scores or other criteria and update if needed
-                        for (const drone of [relayDrone, surveillanceDrone, supplyDrone]) {
-                            exec(`kubectl exec ${drone} -n default -- sh -c 'echo "${NOAUTH}" > auth_mode.txt'`);
-                        }
-
-
-                        execSync(
-                        `kubectl exec ${controller} -n default -- sh -c 'cat > deviceMap.json << "EOF"
-${JSON.stringify(deviceMap)}
-EOF'`
-                        );
-                        const command = `kubectl exec ${controller} -n default -- python3 controller.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP}`;
+                        pool.query('SELECT mission_config FROM mission WHERE mission_id = ?', [missionId], (err, missions) => {
+                            if (err) {
+                                console.error('Error fetching mission config:', err);
+                                return;
+                            }
+    
+                            const config = JSON.parse(missions[0].mission_config);
+                            const missionType = config.mission_type === 'Stealthy Reconnaissance and Payload Employment' ? 'armed' : 'resupply';
+    
+                            console.log(`Mission Type: ${missionType}`);
+                            console.log(`Mission Name: ${config.mission_type}`);
+                        const command = `kubectl exec ${controller} -n default -- python3 controller_updated.py ${gcX} ${gcY} ${destX} ${destY} ${surveillanceDroneIP} ${supplyDroneIP} ${relayDroneIP} ${missionType}`;
                         console.log('Executing command:', command);
 
                         exec(command, (error, stdout, stderr) => {
@@ -723,7 +723,9 @@ EOF'`
                                 pool.query(updateQueryFailed, ['ABORTED', missionId], (err, results) => {
                                     if (err) {
                                         console.error('Database Error:', err);
-                                        res.status(500).json({ message: 'Database error while updating mission to ABORTED.' });
+                                        if (!res.headersSent) {
+                                            res.status(500).json({ message: 'Database error while updating mission to ABORTED.' });
+                                        }
                                     } else {
                                         deleteNetworkPolicyDuringMission(`policy-${controller}`);
                                         deleteNetworkPolicyDuringMission(`policy-${relayDrone}`);
@@ -733,7 +735,9 @@ EOF'`
                                         exec(`kubectl exec ${controller} -n default -- sh -c 'echo "connected" > survState.txt'`);
                                         exec(`kubectl exec ${controller} -n default -- sh -c 'echo "connected" > supState.txt'`);
                                         console.log('Mission status updated to ABORTED.');
-                                        res.status(200).json({ message: 'Mission failed during execution.' });
+                                        if (!res.headersSent) {
+                                            res.status(200).json({ message: 'Mission failed during execution.' });
+                                        }
                                     }
                                 });
                                 return;
@@ -754,6 +758,7 @@ EOF'`
                                 }
                             });
                         });
+                    });
                     }).catch((error) => {
                         console.error('Failed to apply network policies:', error);
                         // res.status(500).json({ message: 'Failed to apply network policies.' });
@@ -1012,6 +1017,62 @@ exports.simulatePhysicalCapture = (req, res) => {
     deleteNetworkPolicyDuringMission(`policy-${device}`);
     res.status(200).json({message: "Physical Capture simulation successful"});
 }
+
+exports.simulateRFSpectrumScanner = (req, res) => {
+    const { device } = req.body;
+    const command = `kubectl exec ${device} -n default -- sh -c 'echo "detected" > rfScanner.txt'`;
+    console.log('Simulating RF Spectrum Scanner detection');
+    exec(command);
+    res.status(200).json({ message: "RF Spectrum Scanner simulation successful" });
+};
+
+exports.simulateKillSwitch = (req, res) => {
+    const { device, missionId } = req.body;
+    
+    console.log(`Kill switch activated for device: ${device}, mission: ${missionId}`);
+    
+    if (missionId) {
+        // First, update database to ABORTED
+        const updateQuery = 'UPDATE mission SET state = ? WHERE mission_id = ?';
+        pool.query(updateQuery, ['ABORTED', missionId], (err, result) => {
+            if (err) {
+                console.error('Error updating mission status:', err);
+                return res.status(500).json({ 
+                    message: "Kill switch activated but failed to update mission status",
+                    error: err.message 
+                });
+            }
+            
+            console.log(`Mission ${missionId} status updated to ABORTED`);
+            
+            // Kill the running Python script
+            const killCommand = `kubectl exec ${device} -n default -- pkill -9 python3`;
+            exec(killCommand, (killErr, killStdout, killStderr) => {
+                if (killErr) {
+                    console.error('Error killing mission process:', killStderr || killErr);
+                } else {
+                    console.log('Mission process killed successfully');
+                }
+                
+                // Clean up mission state files
+                exec(`kubectl exec ${device} -n default -- sh -c 'echo "" > mission_state.json'`);
+                exec(`kubectl exec ${device} -n default -- sh -c 'echo "connected" > survState.txt'`);
+                exec(`kubectl exec ${device} -n default -- sh -c 'echo "connected" > supState.txt'`);
+                
+                res.status(200).json({ 
+                    message: "Kill switch simulation successful - Mission aborted",
+                    missionId: missionId,
+                    status: 'ABORTED'
+                });
+            });
+        });
+    } else {
+        console.log('Kill switch simulated without mission ID');
+        res.status(200).json({ 
+            message: "Kill switch simulation successful (no mission ID)" 
+        });
+    }
+};
 
 exports.downloadMissionManifest = (req, res) => {
     const authToken = req.query.authToken;

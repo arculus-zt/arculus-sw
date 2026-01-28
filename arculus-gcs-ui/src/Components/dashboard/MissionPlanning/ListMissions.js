@@ -7,7 +7,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 // Add this state to track which mission's play button was clicked
-const ListMissions = ({ authToken, setSelectedLocation, setDeviceName, setActiveTab, userType, setVideoCollectionDrone, setSupplyDeliveryDrone }) => {
+const ListMissions = ({ authToken, setSelectedLocation, setDeviceName, setActiveTab, userType, setVideoCollectionDrone, setSupplyDeliveryDrone, setCurrentMissionConfig, setCurrentMissionId  }) => {
   const [missions, setMissions] = useState([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteMissionId, setDeleteMissionId] = useState(null);
@@ -73,8 +73,12 @@ const ListMissions = ({ authToken, setSelectedLocation, setDeviceName, setActive
         setSelectedLocation(config.location);
         setVideoCollectionDrone(config.selections['Video Collection Surveillance Drone']);
         setSupplyDeliveryDrone(config.selections['Supply Delivery Drone']);
-        setActiveTab('Mission Execution');
         setDeviceName(controller);
+        setCurrentMissionConfig(config);
+        setCurrentMissionId(missionId);
+        console.log(' mission config set:', config.mission_type);
+        console.log('Navigating to Mission Execution tab');
+        setActiveTab('Mission Execution');
         setLoadingMission(null); // Reset the loading state
       }, 4000);
     } catch (error) {

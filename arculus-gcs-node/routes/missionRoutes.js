@@ -21,5 +21,7 @@ router.post('/simulateGpsSpoofing', missionService.simulateGpsSpoofing);
 router.post('/simulatePhysicalCapture', missionService.simulatePhysicalCapture);
 router.get('/getDeviceRiskScores', missionService.getDeviceRiskScores);
 router.get('/getCurrentRiskScores', missionService.getCurrentRiskScores);
+router.post('/simulateRFSpectrumScanner', missionService.simulateRFSpectrumScanner);
+router.post('/simulateKillSwitch', missionService.simulateKillSwitch);
 
 module.exports = router;

@@ -13,6 +13,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 
 const missionDomainMapping = {
   'Stealthy Reconnaissance and Resupply': 'Covert Operations Support',
+  'Stealthy Reconnaissance and Payload Employment': 'Covert Operations Support',
   'Mine-Aware Search and Rescue': 'Explosive Ordnance Reconnaissance',
   'Infrastructure Inspection': 'Structural Integrity Assessment',
   'Disaster Assessment and Recovery': 'Crisis Response and Restoration',
@@ -260,6 +261,10 @@ function MissionPlanner() {
         imageSrc = 'inspection.png';
         imageText = 'Disaster Location';
         break;
+      case 'Stealthy Reconnaissance and Payload Employment':
+        imageSrc = 'enemyAirBase.png';
+        imageText = 'Enemy Air Base';
+        break;
       default:
         imageSrc = 'soldier.png';
         imageText = 'Supply Destination';
@@ -455,6 +460,10 @@ function MissionPlanner() {
                 <img src="mineAwareSearchRescue.png" alt="Mine-Aware Search and Rescue" />
                 <p>Mine-Aware Search and Rescue</p>
               </div>
+              <div className="mission-image" onClick={() => handleMissionSelect('Stealthy Reconnaissance and Payload Employment')}>
+                <img src="stealthyReconPayload.png" alt="Stealthy Reconnaissance and Payload Employment" />
+                <p>Stealthy Reconnaissance and Payload Employment</p>
+              </div>
               <div className="mission-image" onClick={() => handleMissionSelect('Stealthy Reconnaissance and Resupply')}>
                 <img src="stealthyReconResupply.png" alt="Stealthy Reconnaissance and Resupply" />
                 <p>Stealthy Reconnaissance and Resupply</p>
@@ -606,7 +615,11 @@ function MissionPlanner() {
                 ))}
               </Stack>
             </div>
-            <label htmlFor="mapsvg">Point the supply delivery destination on map.</label>
+            <label htmlFor="mapsvg">
+              {selectedMission === 'Stealthy Reconnaissance and Payload Employment' 
+              ? 'Point the enemy air base target location on map.' 
+              : 'Point the supply delivery destination on map.'}
+            </label>
             <div className='tabs mission-container' style={{ border: '2px solid black', padding: '10px' }}>
               <svg
                 id="mapsvg"
@@ -626,35 +639,48 @@ function MissionPlanner() {
 
                 {soldierPosition && (
                   <>
-                    <image
-                      href={missionImage.src}
-                      x={soldierPosition.x * 1792 - 35}
-                      y={soldierPosition.y * 1024 - 35}
-                      width="70"
-                      height="70"
-                    />
-                    <rect
-                      x={soldierPosition.x * 1792 - 75}
-                      y={soldierPosition.y * 1024 + 50}
-                      width="150"
-                      height="30"
-                      fill="black"
-                      stroke="white"
-                      strokeWidth="2"
-                      rx="15"
-                      ry="15"
-                    />
-                    <text
-                      x={soldierPosition.x * 1792}
-                      y={soldierPosition.y * 1024 + 70}
-                      fill="white"
-                      fontSize="15"
-                      textAnchor="middle"
-                      fontWeight="bold"
-                    >
-                      {missionImage.text}
-                    </text>
-                  </>
+                    {/* Black outlined circle for armed payload mission */}
+                    {selectedMission === 'Stealthy Reconnaissance and Payload Employment' && (
+                      <circle
+                        cx={soldierPosition.x * 1792}
+                        cy={soldierPosition.y * 1024}
+                        r="100"
+                        fill="none"
+                        stroke="black"
+                        strokeWidth="3"
+                      />
+                    )}
+    
+                    {/* Enemy air base image - LARGER for armed mission */}
+                      <image
+                        href={missionImage.src}
+                        x={soldierPosition.x * 1792 - (selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 75 : 35)}
+                        y={soldierPosition.y * 1024 - (selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 75 : 35)}
+                        width={selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 150 : 70}
+                        height={selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 150 : 70}
+                      />
+                      <rect
+                        x={soldierPosition.x * 1792 - 75}
+                        y={soldierPosition.y * 1024 + (selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 85 : 50)}
+                        width="150"
+                        height="30"
+                        fill="black"
+                        stroke="white"
+                        strokeWidth="2"
+                        rx="15"
+                        ry="15"
+                      />
+                      <text
+                        x={soldierPosition.x * 1792}
+                        y={soldierPosition.y * 1024 + (selectedMission === 'Stealthy Reconnaissance and Payload Employment' ? 105 : 70)}
+                        fill="white"
+                        fontSize="15"
+                        textAnchor="middle"
+                        fontWeight="bold"
+                      >
+                        {missionImage.text}
+                      </text>
+                    </>
                 )}
               </svg>
             </div>

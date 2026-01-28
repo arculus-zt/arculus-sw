@@ -34,7 +34,11 @@ function CurrentMissions(props) {
   const [blinkLowBattery, setBlinkLowBattery] = useState(true);
   const [missionAborted, setMissionAborted] = useState(false);
   const [storedRiskScores, setStoredRiskScores] = useState({});
-const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
+  const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
+  const [currentMissionConfig, setCurrentMissionConfig] = useState(null);
+  const [showRFDetected, setShowRFDetected] = useState(false);
+  const [blinkRFDrone, setBlinkRFDrone] = useState(true);
+  const [currentMissionId, setCurrentMissionId] = useState(null);
   const userType = props.userType;
   const userName = Cookies.get('user');
   const [logs, setLogs] = useState([]);
@@ -536,6 +540,128 @@ const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
     }, 2000);
   };
 
+  const handleSimulateRFSpectrumScanner = () => {
+    const payload = {
+      device: deviceName
+    };
+  
+    fetch(`${API_URL}/mission/simulateRFSpectrumScanner`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        console.log('RF Spectrum Scanner simulation success:', data);
+        setTimeout(() => {
+          setLogs(prevLogs => [...prevLogs, {
+            message: "Enemy RF spectrum surveillance detected.",
+            color: "red"
+          }]);
+          setTimeout(() => {
+            setLogs(prevLogs => [...prevLogs, {
+              message: "Shutting down all communications with GCS - Switching to RL-guided mode",
+              color: "green"
+            }]);
+            setShowRFDetected(true);
+          }, 1500);
+        }, 2000);
+      })
+      .catch(error => {
+        console.error('Error simulating RF spectrum scanner:', error);
+      });
+  };
+
+  useEffect(() => {
+    let blinkInterval;
+    if (showRFDetected) {
+      blinkInterval = setInterval(() => {
+        setBlinkRFDrone(prev => !prev);
+      }, 500); // Blink every 500ms
+    } else {
+      setBlinkRFDrone(true);
+    }
+    return () => clearInterval(blinkInterval);
+  }, [showRFDetected]);
+
+  const handleSimulateKillSwitch = () => {
+    console.log('Kill switch triggered');
+    console.log('RF Detected mode:', showRFDetected);
+
+    const payload = {
+      device: deviceName,
+      missionId: currentMissionId
+    };
+
+    fetch(`${API_URL}/mission/simulateKillSwitch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+      })
+      .then(data => {
+        console.log('Kill switch simulation success:', data);
+    
+        if (showRFDetected) {
+          // ===== SCENARIO 1: RL-GUIDED MODE (No Communication) =====
+          setTimeout(() => {
+            setLogs(prevLogs => [...prevLogs, {
+              message: "Drone in RL-guided autonomous mode - No communication established with GCS. Drone is far from GCS and cant activate Return to Home",
+              color: "red"
+            }]);
+          }, 1000);
+        
+          setTimeout(() => {
+            setLogs(prevLogs => [...prevLogs, {
+              message: "Drone self-destructing to avoid data leakage and enemy capture - Mission aborted",
+              color: "green"
+            }]);
+          }, 2500);
+        
+          setTimeout(() => {
+            setMissionAborted(true);
+          }, 4000);
+        
+        } else {
+          // ===== SCENARIO 2: NORMAL MODE (Active Communication) =====
+          setTimeout(() => {
+            setLogs(prevLogs => [...prevLogs, {
+              message: "GCS sends command to drone to self-destruct",
+              color: "red"
+            }]);
+          }, 1000);
+        
+          setTimeout(() => {
+            setLogs(prevLogs => [...prevLogs, {
+              message: "Drone activated kill switch and self-destructing itself to avoid data leakage - Mission Aborted",
+              color: "green"
+            }]);
+          }, 2500);
+        
+          setTimeout(() => {
+            setMissionAborted(true);
+          }, 4000);
+        }
+      })
+      .catch(error => {
+        console.error('Error simulating kill switch:', error);
+        setLogs(prevLogs => [...prevLogs, {
+          message: "❌ Kill switch simulation failed",
+          color: "red"
+        }]);
+      });
+  };
+
   const handleTabChange = useCallback((tabName) => {
     setActiveTab(tabName);
   }, [setActiveTab]);
@@ -604,7 +730,7 @@ const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
         {activeTab === 'Missions' && (
           <div>
             {selectedMission && <p>Selected Mission Type: {selectedMission}</p>}
-            <ListMissions authToken={encodeURIComponent(Cookies.get('jwtToken'))} setVideoCollectionDrone={setVideoCollectionDrone} setSupplyDeliveryDrone={setSupplyDeliveryDrone} setDeviceName={setDeviceName} setSelectedLocation={setSelectedLocation} setActiveTab={setActiveTab} userType={userType} />
+            <ListMissions authToken={encodeURIComponent(Cookies.get('jwtToken'))} setVideoCollectionDrone={setVideoCollectionDrone} setSupplyDeliveryDrone={setSupplyDeliveryDrone} setDeviceName={setDeviceName} setSelectedLocation={setSelectedLocation} setActiveTab={setActiveTab} userType={userType} setCurrentMissionConfig={setCurrentMissionConfig} setCurrentMissionId={setCurrentMissionId} />
             <br />
           </div>
         )}
@@ -633,12 +759,18 @@ const [riskScoreTimestamp, setRiskScoreTimestamp] = useState(null);
             </button>&nbsp;&nbsp;
             <button onClick={handleSimulateBruteForceSSH} style={{ marginTop: '10px' }}>
               <b>Simulate Brute Force SSH</b>
+            </button>&nbsp;&nbsp;
+            <button onClick={handleSimulateRFSpectrumScanner} style={{ marginTop: '10px' }}>
+              <b>Simulate RF Spectrum Scanner</b>
+            </button>&nbsp;&nbsp;
+            <button onClick={handleSimulateKillSwitch} style={{ marginTop: '10px' }}>
+              <b>Simulate Kill Switch</b>
             </button>
             <br />
             <div className='container'>
               <div className='tabs mission-container' style={{ border: '2px solid black', padding: '10px', display: 'flex' }}>
                 <div style={{ width: '85%' }}>
-                  <MissionExecution handleTabChange={handleTabChange} deviceName={deviceName} selectedLocation={selectedLocation} jwtToken={encodeURIComponent(Cookies.get('jwtToken'))} showSupplyDrone={showSupplyDrone} setShowSupplyDrone={setShowSupplyDrone} setSurvCommEstablished={setSurvCommEstablished} showLowBattery={showLowBattery} blinkLowBattery={blinkLowBattery} missionAborted={missionAborted} setSurvCommLost={setSurvCommLost} survCommEstablished={survCommEstablished} setLogs={setLogs} />
+                  <MissionExecution  missionType={currentMissionConfig?.mission_type} handleTabChange={handleTabChange} deviceName={deviceName} selectedLocation={selectedLocation} jwtToken={encodeURIComponent(Cookies.get('jwtToken'))} showSupplyDrone={showSupplyDrone} setShowSupplyDrone={setShowSupplyDrone} setSurvCommEstablished={setSurvCommEstablished} showLowBattery={showLowBattery} blinkLowBattery={blinkLowBattery} missionAborted={missionAborted} setSurvCommLost={setSurvCommLost} survCommEstablished={survCommEstablished} setLogs={setLogs} showRFDetected={showRFDetected} blinkRFDrone={blinkRFDrone} />
                 </div>
                 <div className="log-container" style={{ width: '15%' }}>
                   <LogConsole logs={logs} />
