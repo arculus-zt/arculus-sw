@@ -5,6 +5,9 @@ const ip = require('ip');
 const fs = require('fs');
 const temp = require('temp').track();
 const crypto = require('crypto');
+const { computeAndStoreZtGrade } = require('../services/ztGradeService');
+const { getShowZtInDeviceName } = require('../services/ztNameToggle');
+const { seedExampleWindowsForAllDrones } = require('../services/seedDroneWindows');
 
 var requestList = {};
 var acceptedList = {};
@@ -315,7 +318,86 @@ exports.getTrustedDevices = (req, res) => {
                                             allowedTasks: tasksByDevice[device.device_id] || [],
                                         }));
 
+                                        //res.json(devicesWithTasks);
+                                        // ---- NEW: compute ZT grade for each device, optionally append to device_name ----
+
+                                        (async () => {
+
+                                        const showZt = getShowZtInDeviceName();
+                                        
+                                        // If toggle is OFF, return as-is (fast path)
+
+                                        if (!showZt) {
+
+                                            res.json(devicesWithTasks);
+
+                                            return;
+
+                                        }
+                                        else {
+                                            seedExampleWindowsForAllDrones();
+                                        }
+                                        
+                                        // Toggle ON: compute ZT grade per device_name in parallel
+
+                                        const augmented = await Promise.all(
+
+                                            devicesWithTasks.map(async (d) => {
+
+                                            try {
+
+                                                const zt = await computeAndStoreZtGrade(d.device_name);
+
+                                                const grade = zt.zt_grade;
+                                        
+                                                return {
+
+                                                ...d,
+
+                                                zt_grade: grade,
+
+                                                // append for UI dropdown usage
+                                                device_name_raw: d.device_name,
+                                                device_name: `${d.device_name} [ZT:${grade}]`,
+
+                                                //device_name: `${d.device_name} [ZT:${grade}]`,
+
+                                                };
+
+                                            } catch (err) {
+
+                                                // If a device has no window data yet, or any error occurs, don't break the API
+
+                                                console.error(`ZT grade compute failed for device=${d.device_name}:`, err.message || err);
+                                        
+                                                return {
+
+                                                ...d,
+
+                                                zt_grade: null,
+
+                                                // keep original name if grade fails
+
+                                                };
+
+                                            }
+
+                                            })
+
+                                        );
+                                        
+                                        res.json(augmented);
+
+                                        })().catch((err) => {
+
+                                        console.error('ZT augmentation failed:', err);
+
+                                        // fallback to existing behavior
+
                                         res.json(devicesWithTasks);
+
+                                        });
+ 
                                     }
                                 });
                             }

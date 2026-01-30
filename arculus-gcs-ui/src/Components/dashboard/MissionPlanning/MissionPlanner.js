@@ -196,7 +196,8 @@ function MissionPlanner() {
 
             devices.forEach(device => {
               if (requiredDeviceTypes[deviceType] === device.device_type) {
-                allPrivileges[device.device_name] = device.allowedTasks;
+                //allPrivileges[device.device_name] = device.allowedTasks;
+                allPrivileges[device.device_name_raw] = device.allowedTasks;
               }
             });
           }
